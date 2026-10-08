@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+function workflow_is_air_conditioner(array $product): bool { return strcasecmp((string)($product['category'] ?? ''),'Air Conditioners')===0; }
+function workflow_product_price(array $product): float { if(!array_key_exists('billingPrice',$product))return round((float)($product['price'] ?? 0),2);return round((float)$product['billingPrice']+(float)($product['packagingCost'] ?? 0)+(workflow_is_air_conditioner($product)?0:(float)($product['deliveryCost'] ?? 0)),2); }
+function workflow_delivery_cost(array $product): float { return workflow_is_air_conditioner($product)?round((float)($product['deliveryCost'] ?? 0),2):0; }
+
 function workflow_owner(array $user, string $member): void {
     if(!in_array($user['role'],['admin','manager'],true)&&($user['role']!=='entrepreneur'||(string)$user['member_id']!==$member))response(['message'=>'You cannot review another shop order.'],403);
 }
@@ -71,7 +75,7 @@ function workflow_route(PDO $pdo,string $path,string $method): void {
         foreach($state['entrepreneurs'] as $candidate)if((string)$candidate['id']===$member&&($candidate['active']??true)&&($candidate['stage']??'')!=='Departed'){$entrepreneur=$candidate;break;}
         if(!$entrepreneur){$pdo->rollBack();response(['message'=>'Choose an active CAMY entrepreneur.'],422);}
         $selected=[];$clientTotal=0;$camyCost=0;$count=0;
-        foreach($requested as $entry){$product=null;foreach($state['products'] as $candidate)if((string)$candidate['id']===(string)($entry['productId']??'')){$product=$candidate;break;}$qty=(int)$entry['qty'];$sell=filter_var($entry['sellPrice']??null,FILTER_VALIDATE_FLOAT);if(!$product||($product['published']??true)!==true||$qty>(int)$product['stock']){$pdo->rollBack();response(['message'=>'A selected product is hidden or does not have enough warehouse stock.'],409);}$base=round((float)$product['price'],2);$delivery=($product['freeDelivery']??true)===false?round((float)($product['deliveryCost']??0),2):0;if($sell===false||!is_finite($sell)||$sell<$base||$sell>100000000){$pdo->rollBack();response(['message'=>'Every client selling price must be at least its CAMY product price.'],422);}$sell=round((float)$sell,2);$selected[]=['id'=>$product['id'],'productId'=>$product['id'],'name'=>$product['name'],'qty'=>$qty,'price'=>$sell,'camyPrice'=>$base,'deliveryCost'=>$delivery,'image'=>$product['image']??'','category'=>$product['category']??'Other'];$clientTotal+=($sell+$delivery)*$qty;$camyCost+=($base+$delivery)*$qty;$count+=$qty;}
+        foreach($requested as $entry){$product=null;foreach($state['products'] as $candidate)if((string)$candidate['id']===(string)($entry['productId']??'')){$product=$candidate;break;}$qty=(int)$entry['qty'];$sell=filter_var($entry['sellPrice']??null,FILTER_VALIDATE_FLOAT);if(!$product||($product['published']??true)!==true||$qty>(int)$product['stock']){$pdo->rollBack();response(['message'=>'A selected product is hidden or does not have enough warehouse stock.'],409);}$base=workflow_product_price($product);$delivery=workflow_delivery_cost($product);if($sell===false||!is_finite($sell)||$sell<$base||$sell>100000000){$pdo->rollBack();response(['message'=>'Every client selling price must be at least its CAMY product price.'],422);}$sell=round((float)$sell,2);$selected[]=['id'=>$product['id'],'productId'=>$product['id'],'name'=>$product['name'],'qty'=>$qty,'price'=>$sell,'camyPrice'=>$base,'deliveryCost'=>$delivery,'image'=>$product['image']??'','category'=>$product['category']??'Other'];$clientTotal+=($sell+$delivery)*$qty;$camyCost+=($base+$delivery)*$qty;$count+=$qty;}
         $clientTotal=round($clientTotal,2);$camyCost=round($camyCost,2);$margin=round($clientTotal-$camyCost,2);
         workflow_reserve($state,$selected,null);$groupId='DROP-'.bin2hex(random_bytes(5));$id=workflow_next_order_id($state);$token=bin2hex(random_bytes(24));
         $pdo->prepare('INSERT INTO customer_order_groups(id,customer_name,customer_phone,district,delivery_address) VALUES(?,?,?,?,?)')->execute([$groupId,$name,$phone,$district,$address]);
@@ -102,7 +106,7 @@ function workflow_route(PDO $pdo,string $path,string $method): void {
             $qty=(int)($item['qty']??0);$sell=filter_var($item['sellPrice']??null,FILTER_VALIDATE_FLOAT);
             if(!$product||($product['published'] ?? true)!==true||$qty<1||$qty>(int)$product['stock']){$pdo->rollBack();response(['message'=>'A selected CAMY product is hidden or unavailable in the requested quantity.'],409);}
             if($sell===false||!is_finite($sell)||$sell<(float)$product['price']||$sell>100000000){$pdo->rollBack();response(['message'=>'Your client price can be any amount at or above the CAMY product price.'],422);}
-            $sell=round((float)$sell,2);$base=round((float)$product['price'],2);$delivery=($product['freeDelivery']??true)===false?round((float)($product['deliveryCost']??0),2):0;
+            $sell=round((float)$sell,2);$base=workflow_product_price($product);$delivery=workflow_delivery_cost($product);
             $selected[]=['id'=>$product['id'],'productId'=>$product['id'],'name'=>$product['name'],'qty'=>$qty,'price'=>$sell,'camyPrice'=>$base,'deliveryCost'=>$delivery,'image'=>$product['image']??'','category'=>$product['category']??'Other'];
             $clientTotal+=($sell+$delivery)*$qty;$camyCost+=($base+$delivery)*$qty;$count+=$qty;
         }

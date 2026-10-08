@@ -1,14 +1,18 @@
+export function isAirConditioner(product) {
+  return String(product?.category || '').trim().toLowerCase() === 'air conditioners'
+}
+
 export function productCosts(product) {
   const billingPrice = Number(product.billingPrice ?? product.price ?? 0)
   const deliveryCost = Number(product.deliveryCost ?? 0)
   const packagingCost = Number(product.packagingCost ?? 0)
-  const freeDelivery = product.freeDelivery !== false
+  const freeDelivery = !isAirConditioner(product)
   const price = Math.round((billingPrice + packagingCost + (freeDelivery ? deliveryCost : 0)) * 100) / 100
-  return { billingPrice, deliveryCost, packagingCost, price, freeDelivery }
+  return { billingPrice, deliveryCost, packagingCost, price, freeDelivery, deliveryChargeVisible: !freeDelivery }
 }
 
 export function deliveryLabel(product) {
-  if (product.freeDelivery !== false) return 'Free delivery'
+  if (!isAirConditioner(product)) return 'Free delivery'
   if (!Number(product.deliveryCost || 0)) return 'Delivery charge applies'
   const charge = Number(product.deliveryCost || 0).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `Delivery charge: Rs. ${charge}`
@@ -19,7 +23,7 @@ export function customerProductPrice(product) {
 }
 
 export function payableDeliveryCost(product) {
-  return product.freeDelivery === false ? Number(product.deliveryCost || 0) : 0
+  return isAirConditioner(product) ? Number(product.deliveryCost || 0) : 0
 }
 
 export function fullProductCost(product) {
