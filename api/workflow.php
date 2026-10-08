@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 
-function workflow_is_air_conditioner(array $product): bool { return strcasecmp((string)($product['category'] ?? ''),'Air Conditioners')===0; }
-function workflow_product_price(array $product): float { if(!array_key_exists('billingPrice',$product))return round((float)($product['price'] ?? 0),2);return round((float)$product['billingPrice']+(float)($product['packagingCost'] ?? 0)+(workflow_is_air_conditioner($product)?0:(float)($product['deliveryCost'] ?? 0)),2); }
-function workflow_delivery_cost(array $product): float { return workflow_is_air_conditioner($product)?round((float)($product['deliveryCost'] ?? 0),2):0; }
+function workflow_product_price(array $product): float { if(!array_key_exists('billingPrice',$product))return round((float)($product['price'] ?? 0),2);return round((float)$product['billingPrice']+(float)($product['packagingCost'] ?? 0)+(($product['freeDelivery'] ?? true)?(float)($product['deliveryCost'] ?? 0):0),2); }
+function workflow_delivery_cost(array $product): float { return ($product['freeDelivery'] ?? true)===false?round((float)($product['deliveryCost'] ?? 0),2):0; }
 
 function workflow_owner(array $user, string $member): void {
     if(!in_array($user['role'],['admin','manager'],true)&&($user['role']!=='entrepreneur'||(string)$user['member_id']!==$member))response(['message'=>'You cannot review another shop order.'],403);

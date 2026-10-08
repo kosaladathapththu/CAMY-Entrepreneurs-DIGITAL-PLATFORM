@@ -47,7 +47,12 @@ const applicationWhatsAppUrl = request => {
   let number = String(request?.phone || '').replace(/\D/g, '')
   if (number.startsWith('0')) number = '94' + number.slice(1)
   const member = request?.member_id ? ` Member ID: ${request.member_id}.` : ''
-  const message = `Hello ${request?.full_name || 'CAMY Entrepreneur'}, your CAMY entrepreneur account has been approved. Your login username is ${request?.email || ''}. Please use the password you created during registration to sign in.${member}`
+  const status=String(request?.status||'pending').toLowerCase()
+  const message=status==='approved'
+    ? `Hello ${request?.full_name || 'CAMY Entrepreneur'}, your CAMY entrepreneur account has been approved. Your login username is ${request?.email || ''}. Please use the password you created during registration to sign in.${member}`
+    : status==='rejected'
+      ? `Hello ${request?.full_name || 'CAMY Applicant'}, we are contacting you regarding your CAMY entrepreneur application #${request?.id || ''}. Please reply if you need more information about the review decision.`
+      : `Hello ${request?.full_name || 'CAMY Applicant'}, CAMY is reviewing your entrepreneur application #${request?.id || ''}. We would like to contact you regarding your application.`
   return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : ''
 }
 const publicRegistrationUrl = () => new URL('/register', String(import.meta.env.VITE_PUBLIC_URL || window.location.origin).replace(/\/+$/, '') + '/').toString()
@@ -729,7 +734,7 @@ function RegistrationApplicationModal({ request, close, review, reviewing }) {
     {request.admin_note&&<section className="application-admin-note"><h3>Admin decision note</h3><p>{request.admin_note}</p></section>}
     <footer className="application-detail-actions">
       {request.status==='pending'&&<><Button variant="secondary" disabled={reviewing===request.id} onClick={()=>review(request,'reject')}>Reject application</Button><Button icon={Check} disabled={reviewing===request.id} onClick={()=>review(request,'approve')}>{reviewing===request.id?'Saving…':'Approve account'}</Button></>}
-      {request.status==='approved'&&<a className="btn primary" href={applicationWhatsAppUrl(request)} target="_blank" rel="noreferrer"><Phone/> Message activation on WhatsApp</a>}
+      {applicationWhatsAppUrl(request)&&<a className="btn application-whatsapp" href={applicationWhatsAppUrl(request)} target="_blank" rel="noreferrer"><Phone/> Message on WhatsApp</a>}
       <Button variant="soft" onClick={close}>Close</Button>
     </footer>
   </div></Modal>
