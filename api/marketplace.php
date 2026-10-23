@@ -383,7 +383,7 @@ function market_route(PDO $pdo, string $path, string $method): void {
         if($status==='Dispatched'){
             $trackingNumber=trim((string)($data['trackingNumber'] ?? ''));
             $courier=trim((string)($data['courier'] ?? ''));
-            if(!$trackingNumber||strlen($trackingNumber)>120||preg_match('/[\x00-\x1F\x7F]/',$trackingNumber)||strlen($courier)>120||preg_match('/[\x00-\x1F\x7F]/',$courier))response(['message'=>'Enter the courier tracking number (up to 120 characters) before dispatching.'],422);
+            if($trackingNumber===''||strlen($trackingNumber)>120||preg_match('/[\x00-\x1F\x7F]/',$trackingNumber)||strlen($courier)>120||preg_match('/[\x00-\x1F\x7F]/',$courier))response(['message'=>'Enter the courier tracking number (up to 120 characters) before dispatching.'],422);
             $state['orders'][$index]['trackingNumber']=$trackingNumber;
             $state['orders'][$index]['courier']=$courier;
             if(!$trackingOnlyUpdate)$state['orders'][$index]['dispatchedAt']=date(DATE_ATOM);

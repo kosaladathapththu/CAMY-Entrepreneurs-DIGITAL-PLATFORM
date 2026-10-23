@@ -20,7 +20,7 @@ export default function ReportsWorkspace(){
  const range=value=>{const [from,to]=dateRange(value);setFilters(old=>({...old,preset:value,...(value==='custom'?{}:{from,to})}))}
  const selected=reportTypes.find(([id])=>id===kind)
  const invalid=!!filters.from&&!!filters.to&&filters.from>filters.to
- const filterText=Object.entries(filters).filter(([key,value])=>value&&!['preset','dateBasis'].includes(key)).map(([key,value])=>`${key}: ${value}`).join(' | ')||'All dates | No filters'
+ const filterText=Object.entries(filters).filter(([key,value])=>value&&!['preset','dateBasis'].includes(key)).map(([key,value])=>`${({from:'From Date',to:'To Date',status:'Status',entrepreneur:'Entrepreneur',product:'Product',search:'Search',category:'Category',stock:'Stock Status',creditStatus:'Credit Status'})[key]||key}: ${key==='status'?label(value):value}`).join(' | ')||'All dates | No filters'
  const download=()=>{
   const primary={name:kind==='orders'?'Order Items':selected[1],columns:report.columns,rows:report.rows}
   const sheets=(kind==='orders'?[...report.extra,primary]:[primary,...report.extra]).map(sheet=>({...sheet,title:`CAMY - ${selected[1]}`,subtitle:`${filterText} | Date basis: ${kind==='products'?'Current stock snapshot':kind==='credit'?(filters.dateBasis==='joined'?'Account joined':'Settlement verified or submitted'):kind==='history'?'Paid date when paid; delivered date otherwise':kind==='finance'?'Delivered / paid / recorded return date':kind==='orders'?'Order date':filters.dateBasis+' date'}`,showTotals:false,rows:sheet.rows.map(row=>({...row,...Object.fromEntries(sheet.columns.filter(c=>c.type==='date').map(c=>[c.key,dateKey(row[c.key])||null]))}))}))
