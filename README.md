@@ -96,7 +96,7 @@ Development addresses:
 
 - Web app: `http://127.0.0.1:8080`
 - Public entrepreneur registration: `http://127.0.0.1:8080/register`
-- PHP API: `http://127.0.0.1:8000`
+- PHP API: `http://127.0.0.1:8001`
 - API health through Vite: `http://127.0.0.1:8080/api/health`
 
 For a deployed site, set `VITE_PUBLIC_URL` to the public CAMY origin before building. The admin registration QR code and copied registration link use this value, for example:
