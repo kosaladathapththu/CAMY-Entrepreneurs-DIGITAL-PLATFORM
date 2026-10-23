@@ -116,7 +116,9 @@ function market_public(array $state): array {
     return ['products'=>array_map(static fn($product)=>array_merge($product,['stock'=>($product['stock'] ?? 0)>0?1:0]),$publishedProducts), 'entrepreneurs'=>array_map(static function($person){$name=trim((string)($person['name'] ?? 'CAMY Partner'));$parts=preg_split('/\s+/', $name) ?: [];return ['id'=>$person['id'],'name'=>$name,'initials'=>strtoupper(implode('',array_map(static fn($part)=>substr($part,0,1),array_slice($parts,0,2)))),'city'=>$person['city'] ?? 'Sri Lanka','stage'=>$person['stage'] ?? 'Trial seller','sales'=>round((float)($person['sales'] ?? 0),2)];}, $realEntrepreneurs), 'inventory'=>array_map(static fn($item)=>['entrepreneurId'=>$item['entrepreneurId'],'productId'=>$item['productId'],'qty'=>$item['qty']>0?999999:0,'price'=>$item['price'] ?? null],$publicInventory)];
 }
 require_once __DIR__.'/workflow.php';
+require_once __DIR__.'/reports.php';
 function market_route(PDO $pdo, string $path, string $method): void {
+    reports_route($pdo,$path,$method);
     if(str_starts_with($path,'/customer/')||in_array($path,['/marketplace/public','/marketplace/preview'],true)||($path==='/marketplace/orders'&&$method==='POST')) {
         response(['message'=>'The customer portal has been retired. Orders are now entered by CAMY entrepreneurs.'],410);
     }
@@ -381,10 +383,10 @@ function market_route(PDO $pdo, string $path, string $method): void {
         if($status==='Dispatched'){
             $trackingNumber=trim((string)($data['trackingNumber'] ?? ''));
             $courier=trim((string)($data['courier'] ?? ''));
-            if(!$trackingNumber||strlen($trackingNumber)>120||preg_match('/[\x00-\x1F\x7F]/',$trackingNumber)||strlen($courier)>120)response(['message'=>'Enter the courier tracking number (up to 120 characters) before dispatching.'],422);
+            if(!$trackingNumber||strlen($trackingNumber)>120||preg_match('/[\x00-\x1F\x7F]/',$trackingNumber)||strlen($courier)>120||preg_match('/[\x00-\x1F\x7F]/',$courier))response(['message'=>'Enter the courier tracking number (up to 120 characters) before dispatching.'],422);
             $state['orders'][$index]['trackingNumber']=$trackingNumber;
             $state['orders'][$index]['courier']=$courier;
-            $state['orders'][$index]['dispatchedAt']=date(DATE_ATOM);
+            if(!$trackingOnlyUpdate)$state['orders'][$index]['dispatchedAt']=date(DATE_ATOM);
         }
         if($status==='Awaiting payment'){$bank=[];foreach($state['entrepreneurs'] as $person)if((string)$person['id']===(string)$order['entrepreneurId'])$bank=$person['bankDetails'] ?? [];workflow_bank_required($bank);if($order['status']==='Pending'){workflow_reserve($state,$order['items'],(string)$order['entrepreneurId']);$state['orders'][$index]['reserved']=true;$state['orders'][$index]['bankDetails']=$bank;}}
         if($order['status']==='Cancelled'&&$status==='Processing'){$reserveShop=(($order['orderMode'] ?? '')==='dropship')?null:(string)$order['entrepreneurId'];if(!($order['reserved'] ?? false)){workflow_reserve($state,$order['items'],$reserveShop);$state['orders'][$index]['reserved']=true;}$state['orders'][$index]['clientPaymentStatus']='Collect on delivery';$state['orders'][$index]['payoutStatus']=((float)($order['entrepreneurMargin'] ?? 0)>0)?'pending_delivery':'not_required';unset($state['orders'][$index]['cancelledAt'],$state['orders'][$index]['dispatchedAt'],$state['orders'][$index]['deliveredAt']);$pdo->prepare("UPDATE entrepreneur_payouts SET collection_status='pending',collected_at=NULL,payout_due_at=NULL,payout_status=IF(payout_amount>0,'pending_delivery','cancelled') WHERE order_id=? AND payout_status<>'paid'")->execute([$matches[1]]);}

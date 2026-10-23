@@ -250,3 +250,15 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX login_limit (email, ip_address, attempted_at)
 ) ENGINE=InnoDB AUTO_INCREMENT=1000;
+
+-- Future changes only: existing orders are not backfilled with invented dates.
+CREATE TABLE IF NOT EXISTS order_status_history (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ order_id VARCHAR(80) NOT NULL,
+ previous_status VARCHAR(40) NULL,
+ new_status VARCHAR(40) NOT NULL,
+ changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ changed_by INT UNSIGNED NULL,
+ note VARCHAR(500) NULL,
+ INDEX history_order_date (order_id, changed_at, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

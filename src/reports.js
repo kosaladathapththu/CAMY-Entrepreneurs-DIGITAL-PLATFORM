@@ -7,11 +7,11 @@ const crcTable = Uint32Array.from({ length: 256 }, (_, index) => { let n = index
 function crc32(bytes) { let crc = 0xffffffff; for (const byte of bytes) crc = crcTable[(crc ^ byte) & 255] ^ (crc >>> 8); return (crc ^ 0xffffffff) >>> 0 }
 
 // A standards-compliant ZIP package using stored entries; no network or external library.
-function zip(files) {
+export function zip(files) {
   const parts = [], directory = []
   let offset = 0, directorySize = 0
   for (const [filename, value] of Object.entries(files)) {
-    const name = encoder.encode(filename), data = encoder.encode(value), crc = crc32(data)
+    const name = encoder.encode(filename), data = value instanceof Uint8Array ? value : encoder.encode(value), crc = crc32(data)
     const local = new Uint8Array(30 + name.length), header = new DataView(local.buffer)
     header.setUint32(0, 0x04034b50, true); header.setUint16(4, 20, true); header.setUint16(6, 0x800, true)
     header.setUint16(12, 33, true); header.setUint32(14, crc, true); header.setUint32(18, data.length, true); header.setUint32(22, data.length, true); header.setUint16(26, name.length, true); local.set(name, 30)
@@ -90,6 +90,7 @@ export function createWorkbook(sheets, generatedAt = new Date()) {
     const id = index + 1, columns = sheet.columns, last = columnName(columns.length - 1), end = Math.max(4, sheet.rows.length + 4)
     const columnWidths = columns.map(column => columnWidth(column, sheet.rows))
     const rows = [`<row r="1" ht="38" customHeight="1">${cell('A1', sheet.title || name, 'text', 1)}</row>`, `<row r="2" ht="24" customHeight="1">${cell('A2', `Generated ${generatedAt.toISOString().slice(0, 19).replace('T', ' ')} UTC  •  ${sheet.rows.length} records  •  Currency: LKR`, 'text', 0)}</row>`, `<row r="4" ht="38" customHeight="1">${columns.map((column, position) => cell(columnName(position) + '4', column.label, 'text', 2)).join('')}</row>`]
+    if (sheet.subtitle) rows.push(`<row r="3" ht="30" customHeight="1">${cell('A3', sheet.subtitle, 'text', 0)}</row>`)
     sheet.rows.forEach((row, rowIndex) => {
       const height = rowHeight(row, columns, columnWidths)
       rows.push(`<row r="${rowIndex + 5}" ht="${height}" customHeight="1">${columns.map((column, position) => cell(columnName(position) + (rowIndex + 5), row[column.key], column.type || 'auto', rowIndex % 2 ? 4 : 3)).join('')}</row>`)
