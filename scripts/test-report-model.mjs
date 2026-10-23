@@ -16,4 +16,5 @@ assert.deepEqual(dateRange('week',new Date('2026-10-03T12:00:00Z')),['2026-09-27
 assert.equal(dateKey('2026-10-22T20:00:00Z'),'2026-10-23')
 const book=createWorkbook([{name:'Pending',title:'CAMY',subtitle:'From 2026-10-01 | Delivered',columns:pending.columns,rows:pending.rows,showTotals:false}]);const xml=new TextDecoder().decode(book);assert(xml.includes('0000123'));assert(xml.includes('From 2026-10-01'));assert(!xml.includes('<f>'))
 const bytes=new Uint8Array([0,255,137,80,78,71]);const archive=zip({'original.png':bytes});assert.deepEqual([...archive.slice(42,48)],[...bytes])
+const reversed=structuredClone(data);reversed.orders[1].payoutStatus='reversal_required';reversed.orders[1].status='Returned';assert.equal(buildReport('finance',reversed,{from:'2026-10-21',to:'2026-10-23'}).rows.find(r=>r.metric==='Commission paid').amount,20);
 console.log('PASS: date boundaries, Colombo timezone, payout eligibility, multi-product totals, text accounts, empty filters, credit clamp, export metadata and binary ZIP bytes.')
