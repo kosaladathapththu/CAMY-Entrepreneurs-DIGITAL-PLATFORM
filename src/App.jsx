@@ -1,3 +1,4 @@
+import { uploadPayoutReceipt, cancelPayoutReceipt, payoutReceiptTypes } from './payoutReceipts'
 import { WhatsAppCommunity } from './WhatsAppCommunity'
 import { InvoiceAttachment } from './InvoiceAttachment'
 import { customerOrderDateRange, filterCustomerOrders, downloadCustomerOrders } from './customerOrdersExport'
@@ -1525,11 +1526,13 @@ export function OrderInvoicePanel({ order, admin, onDone }) {
   </section>
 }
 
-function DropshipPayoutPanel({ order, admin, entrepreneur, onEditEntrepreneur, onDone, onViewCommission, compact=false }) {
+export function DropshipPayoutPanel({ order, admin, entrepreneur, onEditEntrepreneur, onDone, onViewCommission, compact=false }) {
   const [reference,setReference]=useState(order.payoutReference||'')
   const [file,setFile]=useState(null)
   const [busy,setBusy]=useState(false)
   const [error,setError]=useState('')
+  const savingRef=useRef(false)
+  const stagedReceipt=useRef(null)
   const margin=Number(order.entrepreneurMargin||0)
   const camyCost=Number(order.camyCost??order.amount)
   const clientTotal=Number(order.amount||0)
@@ -1551,10 +1554,10 @@ function DropshipPayoutPanel({ order, admin, entrepreneur, onEditEntrepreneur, o
   )
   const payoutNeedsBank = canTransfer && !bankComplete
   const payoutLabel=order.payoutStatus==='paid'?'Paid':order.payoutStatus==='pending_transfer'?'Ready to transfer':order.payoutStatus==='reversal_required'?'Reversal required':order.payoutStatus==='not_required'?'No payout due':'Waiting for delivery'
-  const chooseReceipt=event=>{const selected=event.target.files?.[0]||null;if(!selected){setFile(null);return}if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(selected.type)){event.target.value='';setFile(null);setError('Choose a JPG, PNG, WebP or PDF bank receipt.');return}setFile(selected);setError('')}
+  const chooseReceipt=selected=>{if(stagedReceipt.current?.file!==selected){cancelPayoutReceipt(order.id,stagedReceipt.current);stagedReceipt.current=null}setFile(selected);setError('')}
   const upload=async event=>{
     event.preventDefault()
-    if(busy)return
+    if(savingRef.current)return
     if(!reference.trim()){
       setError('Enter the bank transfer reference before confirming the payout.')
       return
@@ -1563,10 +1566,19 @@ function DropshipPayoutPanel({ order, admin, entrepreneur, onEditEntrepreneur, o
       setError('Attach the bank transfer receipt before confirming the payout.')
       return
     }
-    if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type)||file.size>5*1024*1024){setError('Choose a JPG, PNG, WebP or PDF receipt up to 5 MB.');return}
-    setBusy(true);setError('')
-    try{const receipt=await readReceiptFile(file);const result=await api('/marketplace/orders/'+encodeURIComponent(order.id)+'/payout',{method:'POST',body:JSON.stringify({reference:reference.trim(),receipt})});onDone?.(result.order,result.message)}
-    catch(reason){setError(reason.message)}finally{setBusy(false)}
+    if(!payoutReceiptTypes.includes(file.type)){setError('Please upload a JPG, PNG, WebP or PDF receipt.');return}
+    savingRef.current=true;setBusy(true);setError('')
+    try{
+      const receiptUpload=await uploadPayoutReceipt(order.id,file,stagedReceipt.current,value=>{stagedReceipt.current=value})
+      const result=await api('/marketplace/orders/'+encodeURIComponent(order.id)+'/payout',{method:'POST',timeoutMs:60000,body:JSON.stringify({reference:reference.trim(),receiptUpload})})
+      stagedReceipt.current=null
+      onDone?.(result.order,'Payout recorded successfully.')
+    }catch(reason){
+      // A response may be interrupted after a successful commit. Reconcile the
+      // existing order before offering a retry; never create a second payment.
+      try{const latest=await api('/marketplace/state');const paid=latest.orders?.find(item=>item.id===order.id&&item.payoutStatus==='paid'&&item.payoutReference===reference.trim());if(paid){stagedReceipt.current=null;onDone?.(paid,'Payout recorded successfully.');return}}catch{}
+      setError(reason.status===413?'This receipt is larger than the storage service can process. Please upload another copy.':/cannot reach|took too long|network|failed to fetch/i.test(reason.message)?'The upload was interrupted. Please check your connection and try again.':reason.message)
+    }finally{savingRef.current=false;setBusy(false)}
   }
   if(order.orderMode!=='dropship')return null
   if(!admin){
@@ -1617,22 +1629,10 @@ function DropshipPayoutPanel({ order, admin, entrepreneur, onEditEntrepreneur, o
             />
           </label>
 
-          <label className={`receipt-upload-v3 ${file ? 'selected' : ''}`}>
-            <input
-              required
-              type="file"
-              accept="image/png,image/jpeg,image/webp,application/pdf"
-              onChange={chooseReceipt}
-            />
-            <FileText/>
-            <span>
-              <strong>{file ? 'Receipt selected' : 'Choose transfer receipt'}</strong>
-              <small>{file ? file.name : 'JPG, PNG, WebP or PDF · maximum 5 MB'}</small>
-            </span>
-          </label>
+          <div className="camy-payout-proof"><InvoiceAttachment kind="receipt" file={file} onChange={chooseReceipt} disabled={busy}/></div>
         </div>
 
-        {error && <p className="market-error">{error}</p>}
+        {error && <p className="market-error" role="alert">{error}</p>}
         <Button
           type="submit"
           disabled={busy}
