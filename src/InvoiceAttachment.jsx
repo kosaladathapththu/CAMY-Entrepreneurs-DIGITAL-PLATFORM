@@ -33,7 +33,7 @@ function InvoiceCamera({ onAccept, onClose }) {
     else navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }).then(next => {
       if (!active) { next.getTracks().forEach(track => track.stop()); return }
       stream.current = next
-      if (video.current) { video.current.srcObject = next; video.current.play().catch(() => { if (active) setError(cameraUnavailable) }) }
+      if (video.current) { video.current.srcObject = next; video.current.play().catch(() => { if (active) { stop(); setError(cameraUnavailable) } }) }
     }).catch(() => { if (active) setError(cameraUnavailable) })
     return () => { active = false; mounted.current = false; stop(); if (video.current) video.current.srcObject = null }
   }, [])
