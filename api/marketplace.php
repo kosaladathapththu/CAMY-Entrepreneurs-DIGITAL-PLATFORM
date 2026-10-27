@@ -116,8 +116,10 @@ function market_public(array $state): array {
     return ['products'=>array_map(static fn($product)=>array_merge($product,['stock'=>($product['stock'] ?? 0)>0?1:0]),$publishedProducts), 'entrepreneurs'=>array_map(static function($person){$name=trim((string)($person['name'] ?? 'CAMY Partner'));$parts=preg_split('/\s+/', $name) ?: [];return ['id'=>$person['id'],'name'=>$name,'initials'=>strtoupper(implode('',array_map(static fn($part)=>substr($part,0,1),array_slice($parts,0,2)))),'city'=>$person['city'] ?? 'Sri Lanka','stage'=>$person['stage'] ?? 'Trial seller','sales'=>round((float)($person['sales'] ?? 0),2)];}, $realEntrepreneurs), 'inventory'=>array_map(static fn($item)=>['entrepreneurId'=>$item['entrepreneurId'],'productId'=>$item['productId'],'qty'=>$item['qty']>0?999999:0,'price'=>$item['price'] ?? null],$publicInventory)];
 }
 require_once __DIR__.'/workflow.php';
+require_once __DIR__.'/payout_upload.php';
 require_once __DIR__.'/reports.php';
 function market_route(PDO $pdo, string $path, string $method): void {
+    payout_upload_route($pdo,$path,$method);
     reports_route($pdo,$path,$method);
     if(str_starts_with($path,'/customer/')||in_array($path,['/marketplace/public','/marketplace/preview'],true)||($path==='/marketplace/orders'&&$method==='POST')) {
         response(['message'=>'The customer portal has been retired. Orders are now entered by CAMY entrepreneurs.'],410);
