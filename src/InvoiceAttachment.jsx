@@ -50,7 +50,7 @@ function InvoiceCamera({ onAccept, onClose }) {
       context.drawImage(source, 0, 0)
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .95))
       if (!blob) throw new Error('Could not capture the photo. Please try again or upload the invoice.')
-      if (mounted.current) setPhoto(new File([blob], `invoice-photo-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`, { type: 'image/jpeg' }))
+      if (mounted.current) setPhoto(new File([blob], 'invoice-photo.jpg', { type: 'image/jpeg' }))
     } catch (failure) { if (mounted.current) setError(failure.message) }
     finally { if (mounted.current) setCapturing(false) }
   }
