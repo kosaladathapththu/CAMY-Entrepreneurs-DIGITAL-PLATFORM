@@ -1,3 +1,4 @@
+import { WhatsAppCommunity } from './WhatsAppCommunity'
 import { ProductMediaGallery, downloadProductImage } from './ProductMedia'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { customerProductPrice, deliveryLabel, fullProductCost, payableDeliveryCost } from './productCosts'
@@ -610,6 +611,7 @@ export function DropshipHome({ person, orders = [], setPage, openOrders }) {
       <button type="button" onClick={()=>setPage('credit')}><span><PackageCheck/></span><div><small>AVAILABLE CREDIT</small><strong>{money(availableCredit)}</strong><p>{creditEligible?'View your credit balance and repayments':'Unlocks through verified earnings'}</p></div><ArrowRight/></button>
       <button type="button" onClick={()=>setPage('earnings')}><span><CircleDollarSign/></span><div><small>RECEIVABLE COMMISSION</small><strong>{money(pendingMargin)}</strong><p>Commission ready for transfer</p></div><ArrowRight/></button>
     </section>
+    <WhatsAppCommunity/>
     <section className="home-business-pulse">
       <header><div><small>BUSINESS PULSE</small><h2>Your progress at a glance</h2></div><span>{deliveryRate}% delivery success</span></header>
       <div className="home-pulse-progress"><i style={{width:`${deliveryRate}%`}}/></div>
