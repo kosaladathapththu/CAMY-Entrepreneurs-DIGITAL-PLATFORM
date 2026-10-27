@@ -24,12 +24,12 @@ function payout_upload_directory(): string {
 }
 function payout_upload_write($handle,array $meta): void {
     $raw=json_encode($meta,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);rewind($handle);
-    if(!ftruncate($handle,0)||fwrite($handle,$raw)!==strlen($raw)||!fflush($handle))throw new PayoutUploadFailure('Receipt upload failed. Please try again.',503);
+    if(!@ftruncate($handle,0)||@fwrite($handle,$raw)!==strlen($raw)||!@fflush($handle))throw new PayoutUploadFailure('Receipt upload failed. Please try again.',503);
 }
 function payout_upload_locked(string $token,string $orderId,array $admin): array {
     if(!preg_match('/^[a-f0-9]{48}$/',$token))throw new PayoutUploadFailure('Receipt upload not found. Please select the receipt again.',404);
     $file=payout_upload_directory().'/'.$token.'.json';$handle=@fopen($file,'r+');
-    if(!$handle||!flock($handle,LOCK_EX)){if(is_resource($handle))fclose($handle);throw new PayoutUploadFailure('Receipt upload not found. Please select the receipt again.',404);}
+    if(!$handle||!@flock($handle,LOCK_EX)){if(is_resource($handle))fclose($handle);throw new PayoutUploadFailure('Receipt upload not found. Please select the receipt again.',404);}
     $meta=json_decode(stream_get_contents($handle) ?: '{}',true);
     if(!is_array($meta)||($meta['orderId'] ?? '')!==$orderId||(int)($meta['owner'] ?? 0)!==(int)$admin['id']){flock($handle,LOCK_UN);fclose($handle);throw new PayoutUploadFailure('You cannot use this receipt upload.',403);}
     return [$handle,$meta];
@@ -72,9 +72,9 @@ function payout_upload_work(PDO $pdo,string $orderId,?string $token,array $data,
             try{
                 if($offset<$received){fseek($output,$offset);$existing=fread($output,strlen($bytes));if($offset+strlen($bytes)>$received||!hash_equals(hash('sha256',$bytes),hash('sha256',$existing)))throw new PayoutUploadFailure('The receipt upload changed. Please select the receipt again.',409);}
                 elseif($offset!==$received)throw new PayoutUploadFailure('The receipt upload was interrupted. Please try again.',409);
-                else{fseek($output,$offset);$written=fwrite($output,$bytes);if($written!==strlen($bytes)||!fflush($output)){ftruncate($output,$offset);throw new PayoutUploadFailure('Receipt storage could not complete the upload. Please try again.',507);}$received+=strlen($bytes);}
+                else{fseek($output,$offset);$written=@fwrite($output,$bytes);if($written!==strlen($bytes)||!@fflush($output)){@ftruncate($output,$offset);throw new PayoutUploadFailure('Receipt storage could not complete the upload. Please try again.',507);}$received+=strlen($bytes);}
             }finally{fclose($output);}
-            touch($directory.'/'.$token.'.json');return ['uploadId'=>$token,'offset'=>$received,'ready'=>false];
+            @touch($directory.'/'.$token.'.json');return ['uploadId'=>$token,'offset'=>$received,'ready'=>false];
         }
         if($action!=='finish')throw new PayoutUploadFailure('Invalid receipt upload action.');
         if($received!==(int)$meta['size'])throw new PayoutUploadFailure('Receipt upload is incomplete. Please try again.',409);
@@ -95,5 +95,6 @@ function payout_upload_route(PDO $pdo,string $path,string $method): void {
     try{$admin=payout_upload_admin($pdo);$result=payout_upload_work($pdo,$orderId,$match[2] ?? null,$data,$admin);}
     catch(PayoutUploadFailure $failure){error_log('[CAMY payout upload] order='.$orderId.' admin='.$admin['id'].' status='.$failure->httpStatus.' reason='.$failure->getMessage());response(['message'=>$failure->getMessage()],$failure->httpStatus);}
     catch(Throwable $failure){error_log('[CAMY payout upload] order='.$orderId.' admin='.$admin['id'].' exception='.get_class($failure).' code='.$failure->getCode().' reason='.$failure->getMessage());response(['message'=>'Receipt upload failed. Please try again.'],503);}
+    if(!empty($result['cancelled'])&&!empty($match[2]))@unlink(payout_upload_directory().'/'.$match[2].'.json');
     response($result);
 }

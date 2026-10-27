@@ -1568,8 +1568,10 @@ export function DropshipPayoutPanel({ order, admin, entrepreneur, onEditEntrepre
     }
     if(!payoutReceiptTypes.includes(file.type)){setError('Please upload a JPG, PNG, WebP or PDF receipt.');return}
     savingRef.current=true;setBusy(true);setError('')
+    let receiptReady=false
     try{
       const receiptUpload=await uploadPayoutReceipt(order.id,file,stagedReceipt.current,value=>{stagedReceipt.current=value})
+      receiptReady=true
       const result=await api('/marketplace/orders/'+encodeURIComponent(order.id)+'/payout',{method:'POST',timeoutMs:60000,body:JSON.stringify({reference:reference.trim(),receiptUpload})})
       stagedReceipt.current=null
       onDone?.(result.order,'Payout recorded successfully.')
@@ -1577,7 +1579,7 @@ export function DropshipPayoutPanel({ order, admin, entrepreneur, onEditEntrepre
       // A response may be interrupted after a successful commit. Reconcile the
       // existing order before offering a retry; never create a second payment.
       try{const latest=await api('/marketplace/state');const paid=latest.orders?.find(item=>item.id===order.id&&item.payoutStatus==='paid'&&item.payoutReference===reference.trim());if(paid){stagedReceipt.current=null;onDone?.(paid,'Payout recorded successfully.');return}}catch{}
-      setError(reason.status===413?'This receipt is larger than the storage service can process. Please upload another copy.':/cannot reach|took too long|network|failed to fetch/i.test(reason.message)?'The upload was interrupted. Please check your connection and try again.':reason.message)
+      setError(reason.status===413?'This receipt is larger than the storage service can process. Please upload another copy.':/cannot reach|took too long|network|failed to fetch/i.test(reason.message)?'The upload was interrupted. Please check your connection and try again.':receiptReady&&/CAMY could not/i.test(reason.message)?'The receipt was uploaded, but the payout could not be recorded. Please try again. A retry will not create a duplicate payout.':reason.message)
     }finally{savingRef.current=false;setBusy(false)}
   }
   if(order.orderMode!=='dropship')return null

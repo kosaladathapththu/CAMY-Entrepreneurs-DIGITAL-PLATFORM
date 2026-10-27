@@ -4,6 +4,7 @@ export const payoutReceiptTypes = ['image/jpeg', 'image/png', 'image/webp', 'app
 function friendlyFailure(error) {
   if(error.status===413)return new Error('This receipt is larger than the storage service can process. Please upload another copy.')
   if(/cannot reach|took too long|network|failed to fetch/i.test(error.message))return new Error('The upload was interrupted. Please check your connection and try again.')
+  if(/CAMY could not/i.test(error.message))return new Error('Receipt upload failed. Please try again.')
   return error
 }
 function base64(bytes) {
